@@ -1,17 +1,10 @@
 """
 Main entry point for MCP Server.
-Initializes and runs the Code Review MCP Server.
+Delegates to code_review_mcp_server for config, logging, and tool registration.
 Author: Dmitry Troshenkov
 Last Updated: March 2026
 """
-from mcp.server.fastmcp import FastMCP
-from tools import register as register_tools
-
-
-def main():
-    mcp = FastMCP("code-review-mcp")
-    register_tools(mcp)
-    mcp.run()
+from code_review_mcp_server import main
 
 if __name__ == "__main__":
     main()

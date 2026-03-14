@@ -53,9 +53,16 @@ mcp_server/
    ```bash
    ./venv/bin/python code_review_mcp_server.py
    ```
-   or `python main.py`.
+   or `python main.py` (both use the same config and logging).
 
-2. **Use from Cursor:** Point your Cursor MCP config at this repo. The example `mcp.json` uses relative paths: `workingDirectory` should resolve to the cloned repo (e.g. `../mcp_server` if the config file lives in `~/.cursor`).
+2. **Use from Cursor:** Point your Cursor MCP config at this repo. The example `mcp.json` uses relative paths: `workingDirectory` should resolve to the cloned repo (e.g. `../mcp_server` if the config file lives in `~/.cursor`). For reliability, you can set `workingDirectory` to the absolute path of this repo (e.g. `~/mcp_server`).
+
+### Getting better results
+
+- **Pass `file_path`** when calling `senior_review`, `review_code_quality`, or `security_review`. Findings will include `file:line` references so you can jump to the exact location.
+- **Use `focus`** with `senior_review` to narrow the checklist: `"security"` (secrets, injection, permissions), `"api"` (naming, types, docs), or omit for the full checklist.
+- **Review in small chunks.** Run review on one file or one concern at a time; large blobs of code produce noisier or vaguer feedback.
+- **Ask for one thing at a time.** For example: “Run security_review on this file” or “Run senior_review with focus=api on this function.”
 
 ## License and author
 

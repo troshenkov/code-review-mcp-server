@@ -50,17 +50,38 @@ def _security_checks(code: str) -> list[str]:
     if "random.random()" in code and ("password" in code_lower or "token" in code_lower):
         issues.append("Use secrets module for cryptographic randomness, not random.")
 
+    # Unsafe YAML load (arbitrary code execution)
+    if "yaml.load(" in code and "yaml.safe_load" not in code and "Loader=" not in code:
+        issues.append("yaml.load() is unsafe. Use yaml.safe_load() or pass Loader=.")
+
+    # tempfile.mktemp() is racy; prefer NamedTemporaryFile or mkstemp
+    if "tempfile.mktemp(" in code or "mktemp()" in code:
+        issues.append("tempfile.mktemp() is racy. Use tempfile.NamedTemporaryFile or mkstemp.")
+
+    # SSL verification disabled
+    if "verify=false" in code_lower or "verify=False" in code or "verify: false" in code_lower:
+        issues.append("Disabling SSL verification (verify=False) is insecure. Fix certs or use strict verification.")
+
     return issues
 
 
 def register(mcp: FastMCP):
     @mcp.tool()
-    def security_review(code: str) -> str:
+    def security_review(code: str, file_path: str | None = None) -> str:
         """
         Detects security issues: eval/exec, shell injection, unsafe permissions,
-        SQL injection, hardcoded secrets, insecure randomness.
+        SQL injection, hardcoded secrets, insecure randomness. Pass file_path when
+        available so the report is scoped to that file.
         """
         if not isinstance(code, str):
             return "Input error: code must be a string."
         issues = _security_checks(code)
-        return "\n".join(issues) if issues else "No obvious security problems."
+        lines = ["## Security review"]
+        if file_path:
+            lines.append(f"File: {file_path}")
+            lines.append("")
+        if issues:
+            lines.extend("  - " + i for i in issues)
+        else:
+            lines.append("No obvious security problems.")
+        return "\n".join(lines)

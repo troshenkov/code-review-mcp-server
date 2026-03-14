@@ -8,27 +8,28 @@ import ast
 import re
 from mcp.server.fastmcp import FastMCP
 
+# (message, line_number or None)
+Finding = tuple[str, int | None]
 
-def _python_senior_checks(code: str) -> list[str]:
-    """Run Python-specific checks; return list of findings."""
-    findings = []
+
+def _python_senior_checks(code: str) -> list[Finding]:
+    """Run Python-specific checks; return list of (message, line)."""
+    findings: list[Finding] = []
     try:
         tree = ast.parse(code)
     except SyntaxError:
-        return ["Invalid Python syntax; fix before review."]
+        return [("Invalid Python syntax; fix before review.", None)]
 
-    # Long functions (> ~40 lines)
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef):
-            lines = (node.end_lineno or 0) - (node.lineno or 0) + 1
-            if lines > 45:
-                findings.append(f"Function '{node.name}' is long ({lines} lines). Split or extract helpers.")
-            # Shallow complexity: count branches
+            line = node.lineno or 0
+            nlines = (node.end_lineno or 0) - line + 1
+            if nlines > 45:
+                findings.append((f"Function '{node.name}' is long ({nlines} lines). Split or extract helpers.", line))
             branches = sum(1 for n in ast.walk(node) if isinstance(n, (ast.If, ast.ExceptHandler, ast.With, ast.For, ast.While)))
             if branches > 10:
-                findings.append(f"Function '{node.name}' has high branching ({branches}). Simplify or extract.")
+                findings.append((f"Function '{node.name}' has high branching ({branches}). Simplify or extract.", line))
 
-    # Magic numbers: count non-trivial numeric literals
     magic_count = 0
     for node in ast.walk(tree):
         if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
@@ -36,55 +37,101 @@ def _python_senior_checks(code: str) -> list[str]:
             if v not in (0, 1, -1, 2) and not (isinstance(v, int) and 0 <= v <= 10):
                 magic_count += 1
     if magic_count > 3:
-        findings.append("Several magic numbers detected. Use named constants for readability.")
+        findings.append(("Several magic numbers detected. Use named constants for readability.", None))
 
-    # Missing docstrings on public functions/classes
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
             if node.name.startswith("_"):
                 continue
             doc = ast.get_docstring(node)
             if not doc:
-                findings.append(f"Public '{node.name}' has no docstring. Add a one-line purpose and args/returns.")
+                line = node.lineno or None
+                findings.append((f"Public '{node.name}' has no docstring. Add a one-line purpose and args/returns.", line))
 
-    # Single-letter or very short names (heuristic)
     short_names = re.findall(r"\b([a-z])\b", code)
     if len(short_names) > 8:
-        findings.append("Many single-letter names; prefer descriptive names for clarity.")
+        findings.append(("Many single-letter names; prefer descriptive names for clarity.", None))
+
+    # Mutable default argument (e.g. def f(x=[]):) — common bug
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):
+            for default in node.args.defaults:
+                if isinstance(default, (ast.List, ast.Dict, ast.Set)):
+                    line = node.lineno or None
+                    findings.append(("Mutable default argument (list/dict/set). Use None and assign inside the function.", line))
+                    break
+
+    # Too many arguments — hard to use and test
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):
+            nargs = len(node.args.args) + len(node.args.kwonlyargs)
+            if nargs > 7:
+                line = node.lineno or None
+                findings.append((f"Function '{node.name}' has many arguments ({nargs}). Consider a options object or dataclass.", line))
+
+    # assert used for validation (assert can be disabled with -O; use explicit checks in production)
+    if re.search(r"^\s*assert\s+", code, re.MULTILINE) and "def test_" not in code and "pytest" not in code.lower():
+        findings.append(("assert used for validation; use explicit if/raise in production (assert is disabled with -O).", None))
 
     return findings
 
 
-def _generic_checks(code: str) -> list[str]:
+def _generic_checks(code: str) -> list[Finding]:
     """Language-agnostic senior-level checks."""
-    findings = []
+    findings: list[Finding] = []
     lines = code.splitlines()
     if len(lines) > 400:
-        findings.append("File is very long. Split by responsibility (see suggest_code_split).")
+        findings.append(("File is very long. Split by responsibility (see suggest_code_split).", None))
     if "TODO" in code or "FIXME" in code or "XXX" in code:
-        findings.append("Resolve TODO/FIXME/XXX before considering code done.")
+        findings.append(("Resolve TODO/FIXME/XXX before considering code done.", None))
     if "except:" in code or "except Exception:" in code:
-        findings.append("Avoid bare 'except' or broad 'except Exception'; catch specific errors.")
+        findings.append(("Avoid bare 'except' or broad 'except Exception'; catch specific errors.", None))
+    # except: pass or except Exception: pass (swallowed errors)
+    if re.search(r"except\s*(?:Exception)?\s*:\s*pass\b", code):
+        findings.append(("Empty except with pass swallows errors. Log or re-raise.", None))
     if "print(" in code and "def " in code:
-        findings.append("Prefer logging over print() in production code.")
-    # Duplicate block heuristic: same line repeated
+        findings.append(("Prefer logging over print() in production code.", None))
     if lines:
         from collections import Counter
         counter = Counter(l.strip() for l in lines if len(l.strip()) > 20)
-        for line, count in counter.most_common(3):
+        for line_content, count in counter.most_common(3):
             if count >= 3:
-                findings.append("Repeated code detected (DRY). Extract to a function or shared constant.")
+                findings.append(("Repeated code detected (DRY). Extract to a function or shared constant.", None))
                 break
+
+    # Deprecated / legacy patterns
+    if ".has_key(" in code:
+        findings.append(("dict.has_key() was removed in Python 3. Use 'key in d'.", None))
+    if "urllib2" in code and "urllib.request" not in code:
+        findings.append(("urllib2 is Python 2. Use urllib.request (or requests) for Python 3.", None))
+
     return findings
+
+
+def _format_finding(finding: Finding, file_path: str | None) -> str:
+    msg, line = finding
+    if file_path and line is not None:
+        return f"  - {file_path}:{line}: {msg}"
+    if line is not None:
+        return f"  - line {line}: {msg}"
+    return f"  - {msg}"
 
 
 def register(mcp: FastMCP) -> None:
     @mcp.tool()
-    def senior_review(code: str, language: str = "python") -> str:
+    def senior_review(
+        code: str,
+        language: str = "python",
+        file_path: str | None = None,
+        focus: str | None = None,
+    ) -> str:
         """
-        Review code against senior developer standards. Returns a checklist and concrete
-        suggestions: naming, error handling, types, tests, security, DRY, documentation.
-        Use this to make code production-ready and maintainable at a senior level.
+        Review code against senior developer standards. Returns a structured report:
+        Summary, Findings (with file:line when file_path is provided), and Checklist.
+        Use when: you want production-ready, maintainable code (naming, errors, types,
+        tests, security, DRY, docs). Prefer passing file_path when available so
+        findings cite location. focus can narrow the checklist: "security", "api", or
+        omit for full review.
         """
         if not isinstance(code, str):
             return "Input error: code must be a string."
@@ -92,31 +139,43 @@ def register(mcp: FastMCP) -> None:
             return "Input error: code is empty."
 
         lang = (language or "python").strip().lower()
-        sections = ["Senior developer review\n"]
+        focus_key = (focus or "").strip().lower() or "all"
+        sections = ["## Senior developer review", ""]
 
         # 1. Generic
         generic = _generic_checks(code)
         if generic:
-            sections.append("Structure & discipline:")
-            sections.extend("  - " + g for g in generic)
+            sections.append("## Findings (structure & discipline)")
+            for f in generic:
+                sections.append(_format_finding(f, file_path))
             sections.append("")
         else:
-            sections.append("Structure & discipline: OK (file size, TODOs, error handling, DRY).")
+            sections.append("## Findings (structure & discipline)")
+            sections.append("  OK — file size, TODOs, error handling, DRY.")
             sections.append("")
 
         # 2. Language-specific
         if lang == "python":
             py_findings = _python_senior_checks(code)
             if py_findings:
-                sections.append("Python-specific:")
-                # Dedupe and limit
-                seen = set()
+                sections.append("## Findings (Python-specific)")
+                seen: set[str] = set()
                 for f in py_findings[:12]:
-                    if f not in seen:
-                        seen.add(f)
-                        sections.append("  - " + f)
+                    if f[0] not in seen:
+                        seen.add(f[0])
+                        sections.append(_format_finding(f, file_path))
                 sections.append("")
-            sections.append("Senior checklist:")
+
+        sections.append("## Checklist")
+        if focus_key == "security":
+            sections.append("  [ ] No eval/exec on user input; no shell injection")
+            sections.append("  [ ] No secrets in code; use env/config")
+            sections.append("  [ ] Parameterized SQL / safe deserialization")
+        elif focus_key == "api":
+            sections.append("  [ ] Clear naming and single responsibility")
+            sections.append("  [ ] Types documented or type hints (public API)")
+            sections.append("  [ ] Documented public API and edge cases")
+        else:
             sections.append("  [ ] Clear naming (no single-letter except loop indices)")
             sections.append("  [ ] Errors handled explicitly; no bare except")
             sections.append("  [ ] Types documented or type hints (public API)")
@@ -125,12 +184,5 @@ def register(mcp: FastMCP) -> None:
             sections.append("  [ ] Tests for main paths and edge cases")
             sections.append("  [ ] No secrets in code; use env/config")
             sections.append("  [ ] Logging instead of print for production")
-        else:
-            sections.append("Senior checklist (generic):")
-            sections.append("  [ ] Clear naming and single responsibility")
-            sections.append("  [ ] Explicit error handling")
-            sections.append("  [ ] No duplicated logic (DRY)")
-            sections.append("  [ ] Documented public API")
-            sections.append("  [ ] Tests for critical behavior")
 
         return "\n".join(sections)
