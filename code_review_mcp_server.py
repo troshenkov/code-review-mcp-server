@@ -8,10 +8,12 @@ Last Updated: March 2026
 import logging
 import json
 import sys
+from pathlib import Path
+
 from mcp.server.fastmcp import FastMCP
 from tools import register as register_tools
 
-CONFIG_PATH = "mcp.json"
+CONFIG_PATH = Path(__file__).resolve().parent / "mcp.json"
 
 
 def load_config(path):

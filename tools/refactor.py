@@ -25,6 +25,7 @@ def _python_refactor_suggestions(code: str) -> list[str]:
             branches = sum(
                 1 for n in ast.walk(node)
                 if isinstance(n, (ast.If, ast.ExceptHandler, ast.With, ast.For, ast.While))
+            )
             if branches > 8:
                 suggestions.append(f"Reduce complexity in '{node.name}' (e.g. extract helpers, early returns).")
 
