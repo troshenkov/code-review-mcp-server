@@ -1,0 +1,12 @@
+# Python virtual environment
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
+*.log
+
+# MCP / Cursor temporary files
+*.mcp.cache
