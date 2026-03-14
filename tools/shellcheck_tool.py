@@ -1,0 +1,35 @@
+"""
+ShellCheck integration tool for MCP server.
+Runs ShellCheck on Bash scripts for static analysis.
+Author: Dmitry Troshenkov
+Last Updated: March 2026
+"""
+import subprocess
+from mcp.server.fastmcp import FastMCP
+from utils.file_helpers import with_temp_file
+
+
+def register(mcp: FastMCP):
+    @mcp.tool()
+    def shellcheck_script(script: str) -> str:
+        """
+        Runs ShellCheck on a Bash script.
+        """
+        def run(fname):
+            try:
+                result = subprocess.run(
+                    ["shellcheck", fname],
+                    capture_output=True,
+                    text=True
+                )
+                # ShellCheck exits non-zero when it finds issues and writes them to stdout
+                report = result.stdout.strip()
+                if report:
+                    return report
+                if result.returncode != 0 and result.stderr.strip():
+                    return f"ShellCheck error:\n{result.stderr.strip()}"
+                return "ShellCheck found no issues."
+            except FileNotFoundError:
+                return "ShellCheck not found. Please install ShellCheck."
+
+        return with_temp_file(script, run)

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "code-review": {
+      "command": "./venv/bin/python",
+      "args": ["code_review_mcp_server.py"],
+      "workingDirectory": "../mcp_server"
+    }
+  }
+}

@@ -10,3 +10,8 @@ __pycache__/
 
 # MCP / Cursor temporary files
 *.mcp.cache
+
+# Local config and secrets (do not commit)
+.env
+.env.local
+*.local
