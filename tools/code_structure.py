@@ -24,7 +24,22 @@ def register(mcp: FastMCP) -> None:
             return "Input error: code is empty."
 
         language = (language or "python").strip().lower()
+        nlines = len(code.splitlines())
         plan = []
+
+        # File size guidelines (rough): 200–400 sweet spot, 500–700 acceptable, 1000+ split
+        if nlines >= 700:
+            plan.append("File size guidelines (rough):")
+            plan.append("  - ~200–400 lines per file = sweet spot (one clear responsibility, easy to name and test).")
+            plan.append("  - ~500–700 lines = acceptable if the file is coherent (e.g. one form with many fields).")
+            plan.append("  - 1000+ lines = strong signal to split: by feature, tab/section, or layer (e.g. routes vs handlers).")
+            plan.append("")
+            if nlines >= 1000:
+                plan.append("Examples: Dashboards (2000+ lines) → split by section/tab into smaller components under Dashboard/.")
+                plan.append("Server/engine files (2000+ lines) → split by area/route or domain (e.g. estimate vs report vs routes).")
+                plan.append("")
+            plan.append("Split plan for this file:")
+            plan.append("")
 
         if language == "python":
             # Heuristic: top-level classes and loose functions as split points

@@ -7,6 +7,8 @@ Last Updated: March 2026
 import re
 from mcp.server.fastmcp import FastMCP
 
+from .common import require_str
+
 
 def _security_checks(code: str) -> list[str]:
     issues = []
@@ -65,23 +67,25 @@ def _security_checks(code: str) -> list[str]:
     return issues
 
 
+def security_review(code: str, file_path: str | None = None) -> str:
+    """
+    Detects security issues: eval/exec, shell injection, unsafe permissions,
+    SQL injection, hardcoded secrets, insecure randomness.
+    """
+    err = require_str(code, "code")
+    if err:
+        return err
+    issues = _security_checks(code)
+    lines = ["## Security review"]
+    if file_path:
+        lines.append(f"File: {file_path}")
+        lines.append("")
+    if issues:
+        lines.extend("  - " + i for i in issues)
+    else:
+        lines.append("No obvious security problems.")
+    return "\n".join(lines)
+
+
 def register(mcp: FastMCP):
-    @mcp.tool()
-    def security_review(code: str, file_path: str | None = None) -> str:
-        """
-        Detects security issues: eval/exec, shell injection, unsafe permissions,
-        SQL injection, hardcoded secrets, insecure randomness. Pass file_path when
-        available so the report is scoped to that file.
-        """
-        if not isinstance(code, str):
-            return "Input error: code must be a string."
-        issues = _security_checks(code)
-        lines = ["## Security review"]
-        if file_path:
-            lines.append(f"File: {file_path}")
-            lines.append("")
-        if issues:
-            lines.extend("  - " + i for i in issues)
-        else:
-            lines.append("No obvious security problems.")
-        return "\n".join(lines)
+    mcp.tool()(security_review)

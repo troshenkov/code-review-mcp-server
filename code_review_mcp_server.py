@@ -34,7 +34,7 @@ def main():
 
     config = load_config(CONFIG_PATH)
     if not config:
-        logging.error("Configuration missing or invalid. Exiting.")
+        logging.error("Configuration missing or invalid at %s. Exiting.", CONFIG_PATH)
         sys.exit(1)
 
     try:

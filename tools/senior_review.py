@@ -8,8 +8,7 @@ import ast
 import re
 from mcp.server.fastmcp import FastMCP
 
-# (message, line_number or None)
-Finding = tuple[str, int | None]
+from .common import Finding, format_finding, require_str
 
 
 def _python_senior_checks(code: str) -> list[Finding]:
@@ -80,8 +79,13 @@ def _generic_checks(code: str) -> list[Finding]:
     """Language-agnostic senior-level checks."""
     findings: list[Finding] = []
     lines = code.splitlines()
-    if len(lines) > 400:
-        findings.append(("File is very long. Split by responsibility (see suggest_code_split).", None))
+    nlines = len(lines)
+    if nlines >= 1000:
+        findings.append(("File 1000+ lines — strong signal to split: by feature, tab/section, or layer (e.g. routes vs handlers). Use suggest_code_split.", None))
+    elif nlines >= 700:
+        findings.append(("File 700+ lines. Sweet spot is 200–400; split unless one coherent unit (e.g. single form).", None))
+    elif nlines > 400:
+        findings.append(("File over ~400 lines. Consider splitting; 200–400 per file is the sweet spot for one clear responsibility.", None))
     if "TODO" in code or "FIXME" in code or "XXX" in code:
         findings.append(("Resolve TODO/FIXME/XXX before considering code done.", None))
     if "except:" in code or "except Exception:" in code:
@@ -108,15 +112,6 @@ def _generic_checks(code: str) -> list[Finding]:
     return findings
 
 
-def _format_finding(finding: Finding, file_path: str | None) -> str:
-    msg, line = finding
-    if file_path and line is not None:
-        return f"  - {file_path}:{line}: {msg}"
-    if line is not None:
-        return f"  - line {line}: {msg}"
-    return f"  - {msg}"
-
-
 def register(mcp: FastMCP) -> None:
     @mcp.tool()
     def senior_review(
@@ -133,10 +128,9 @@ def register(mcp: FastMCP) -> None:
         findings cite location. focus can narrow the checklist: "security", "api", or
         omit for full review.
         """
-        if not isinstance(code, str):
-            return "Input error: code must be a string."
-        if not code.strip():
-            return "Input error: code is empty."
+        err = require_str(code, "code")
+        if err:
+            return err
 
         lang = (language or "python").strip().lower()
         focus_key = (focus or "").strip().lower() or "all"
@@ -147,7 +141,7 @@ def register(mcp: FastMCP) -> None:
         if generic:
             sections.append("## Findings (structure & discipline)")
             for f in generic:
-                sections.append(_format_finding(f, file_path))
+                sections.append(format_finding(f, file_path))
             sections.append("")
         else:
             sections.append("## Findings (structure & discipline)")
@@ -163,7 +157,7 @@ def register(mcp: FastMCP) -> None:
                 for f in py_findings[:12]:
                     if f[0] not in seen:
                         seen.add(f[0])
-                        sections.append(_format_finding(f, file_path))
+                        sections.append(format_finding(f, file_path))
                 sections.append("")
 
         sections.append("## Checklist")
@@ -181,6 +175,7 @@ def register(mcp: FastMCP) -> None:
             sections.append("  [ ] Types documented or type hints (public API)")
             sections.append("  [ ] No magic numbers; constants named")
             sections.append("  [ ] Functions small and single-purpose")
+            sections.append("  [ ] File size: ~200–400 lines sweet spot; 500–700 OK if coherent; 1000+ split by feature/tab/layer")
             sections.append("  [ ] Tests for main paths and edge cases")
             sections.append("  [ ] No secrets in code; use env/config")
             sections.append("  [ ] Logging instead of print for production")

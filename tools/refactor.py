@@ -8,6 +8,8 @@ import ast
 import re
 from mcp.server.fastmcp import FastMCP
 
+from .common import require_str
+
 
 def _python_refactor_suggestions(code: str) -> list[str]:
     suggestions = []
@@ -64,25 +66,25 @@ def _python_refactor_suggestions(code: str) -> list[str]:
     return suggestions[:10]
 
 
-def register(mcp: FastMCP):
-    @mcp.tool()
-    def refactor_code(code: str, language: str = "python") -> str:
-        """
-        Suggests refactoring improvements: split long functions, reduce complexity,
-        remove dead/unused code, rename for clarity. Uses structure (e.g. AST for Python).
-        """
-        if not isinstance(code, str):
-            return "Input error: code must be a string."
-        if not code.strip():
-            return "Input error: code is empty."
+def refactor_code(code: str, language: str = "python") -> str:
+    """
+    Suggests refactoring improvements: split long functions, reduce complexity,
+    remove dead/unused code, rename for clarity. Uses structure (e.g. AST for Python).
+    """
+    err = require_str(code, "code")
+    if err:
+        return err
+    lang = (language or "python").strip().lower()
+    if lang == "python":
+        suggestions = _python_refactor_suggestions(code)
+    else:
+        suggestions = [
+            "Split large functions into smaller, single-purpose ones.",
+            "Reduce nesting; use early returns or extract helpers.",
+            "Rename variables for clarity; remove dead code.",
+        ]
+    return "Refactoring suggestions:\n" + "\n".join("  - " + s for s in suggestions)
 
-        lang = (language or "python").strip().lower()
-        if lang == "python":
-            suggestions = _python_refactor_suggestions(code)
-        else:
-            suggestions = [
-                "Split large functions into smaller, single-purpose ones.",
-                "Reduce nesting; use early returns or extract helpers.",
-                "Rename variables for clarity; remove dead code.",
-            ]
-        return "Refactoring suggestions:\n" + "\n".join("  - " + s for s in suggestions)
+
+def register(mcp: FastMCP):
+    mcp.tool()(refactor_code)

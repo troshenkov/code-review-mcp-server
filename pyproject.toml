@@ -1,0 +1,17 @@
+[project]
+name = "code-review-mcp-server"
+version = "1.0.0"
+description = "Code Review MCP Server – senior-level code review, quality, security, and refactor tools for Cursor and MCP clients"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Dmitry Troshenkov" }]
+license = { text = "MIT" }
+dependencies = ["mcp>=1.0.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"

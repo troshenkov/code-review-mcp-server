@@ -8,8 +8,7 @@ import ast
 import re
 from mcp.server.fastmcp import FastMCP
 
-# (message, line_number or None)
-Finding = tuple[str, int | None]
+from .common import Finding, format_finding, require_str
 
 
 def _max_nesting(node: ast.AST, depth: int = 0) -> int:
@@ -54,8 +53,14 @@ def _python_quality(code: str) -> list[Finding]:
     if "TODO" in code or "FIXME" in code:
         issues.append(("TODO/FIXME left in code. Resolve before merge.", None))
 
-    if len(code.splitlines()) > 500:
-        issues.append(("File too large. Split by responsibility.", None))
+    # File size guidelines (rough): 200–400 sweet spot, 500–700 acceptable if coherent, 1000+ split
+    nlines = len(code.splitlines())
+    if nlines >= 1000:
+        issues.append(("File is 1000+ lines — strong signal to split. Split by feature, tab/section, or layer (e.g. routes vs handlers).", None))
+    elif nlines >= 700:
+        issues.append(("File is 700+ lines. Consider splitting unless it's one coherent unit (e.g. single form). Aim for 200–400 lines per file.", None))
+    elif nlines > 500:
+        issues.append(("File exceeds ~500 lines. Sweet spot is 200–400; 500–700 is acceptable if the file has one clear job.", None))
 
     if "def " in code and " -> " not in code and ":" in code:
         defs = re.findall(r"^\s*def\s+\w+", code, re.MULTILINE)
@@ -70,43 +75,38 @@ def _python_quality(code: str) -> list[Finding]:
     return issues
 
 
-def _format_finding(finding: Finding, file_path: str | None) -> str:
-    msg, line = finding
-    if file_path and line is not None:
-        return f"  - {file_path}:{line}: {msg}"
-    if line is not None:
-        return f"  - line {line}: {msg}"
-    return f"  - {msg}"
+def review_code_quality(code: str, language: str = "python", file_path: str | None = None) -> str:
+    """
+    Checks for code quality issues at a senior level: missing error handling,
+    over-abstraction, long functions, deep nesting, TODOs, missing type hints.
+    Pass file_path when available so findings include file:line references.
+    """
+    err = require_str(code, "code")
+    if err:
+        return err
+    lang = (language or "python").strip().lower()
+    if lang == "python":
+        issues = _python_quality(code)
+    else:
+        issues: list[Finding] = []
+        if "try:" not in code and "except" not in code and "set -e" not in code:
+            issues.append(("Consider explicit error handling.", None))
+        if "TODO" in code or "FIXME" in code:
+            issues.append(("TODO/FIXME left in code.", None))
+        nlines = len(code.splitlines())
+        if nlines >= 1000:
+            issues.append(("File 1000+ lines — split by feature, tab/section, or layer.", None))
+        elif nlines >= 700:
+            issues.append(("File 700+ lines. Aim for 200–400 per file unless one coherent unit.", None))
+        elif nlines > 500:
+            issues.append(("File exceeds ~500 lines. Sweet spot is 200–400; 500–700 acceptable if one clear job.", None))
+    if not issues:
+        return "## Code quality\n\nNo major issues detected."
+    lines = ["## Code quality", ""]
+    for f in issues:
+        lines.append(format_finding(f, file_path))
+    return "\n".join(lines)
 
 
 def register(mcp: FastMCP):
-    @mcp.tool()
-    def review_code_quality(code: str, language: str = "python", file_path: str | None = None) -> str:
-        """
-        Checks for code quality issues at a senior level: missing error handling,
-        over-abstraction, long functions, deep nesting, TODOs, missing type hints.
-        Pass file_path when available so findings include file:line references.
-        """
-        if not isinstance(code, str):
-            return "Input error: code must be a string."
-        if not code.strip():
-            return "Input error: code is empty."
-
-        lang = (language or "python").strip().lower()
-        if lang == "python":
-            issues = _python_quality(code)
-        else:
-            issues: list[Finding] = []
-            if "try:" not in code and "except" not in code and "set -e" not in code:
-                issues.append(("Consider explicit error handling.", None))
-            if len(code.splitlines()) > 500:
-                issues.append(("File too large.", None))
-            if "TODO" in code or "FIXME" in code:
-                issues.append(("TODO/FIXME left in code.", None))
-
-        if not issues:
-            return "## Code quality\n\nNo major issues detected."
-        lines = ["## Code quality", ""]
-        for f in issues:
-            lines.append(_format_finding(f, file_path))
-        return "\n".join(lines)
+    mcp.tool()(review_code_quality)

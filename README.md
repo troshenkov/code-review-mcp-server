@@ -43,9 +43,22 @@ mcp_server/
   code_review_mcp_server.py    # Entry point with config and logging
   tools/                        # MCP tools (quality, security, refactor, etc.)
   utils/                        # Helpers (temp files, diffs)
+  tests/                        # Unit tests (tools, utils, common)
   mcp.json                      # Example MCP config for Cursor
   requirements.txt
+  requirements-dev.txt          # Dev deps (pytest); optional
+  pyproject.toml               # Project metadata and pytest config
 ```
+
+## Testing
+
+From the project root (with the venv activated and deps installed):
+
+```bash
+python -m unittest discover -s tests -p 'test_*.py' -v
+```
+
+Or install dev deps and use pytest: `pip install -r requirements-dev.txt` then `pytest tests/ -v`.
 
 ## Usage
 
