@@ -7,7 +7,7 @@ Last Updated: March 2026
 
 import subprocess
 import tempfile
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 
 def run_eslint_script(js_code: str) -> str:
@@ -22,6 +22,7 @@ def run_eslint_script(js_code: str) -> str:
                 input=js_code,
                 text=True,
                 capture_output=True,
+                timeout=30,
             )
             output = result.stdout.strip()
             errors = result.stderr.strip()
@@ -33,6 +34,8 @@ def run_eslint_script(js_code: str) -> str:
                 return "No ESLint issues found."
         except FileNotFoundError:
             return "ESLint or npx not found. Install ESLint globally or in project."
+        except subprocess.TimeoutExpired:
+            return "ESLint timed out after 30s. Try a smaller snippet or increase timeout."
 
     # Use a temporary file name for ESLint to detect file type
     with tempfile.NamedTemporaryFile(suffix=".js") as temp_file:

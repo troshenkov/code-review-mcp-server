@@ -26,14 +26,14 @@ The server exposes **tools** over MCP that your editor can call to:
 | **Refactor** | `refactor_code` — split functions, reduce complexity, unused imports, naming |
 | **Structure** | `suggest_code_split`, `suggest_folder_structure`, `suggest_reuse` — split by logic, folder layout, reuse existing code |
 | **Tests** | `generate_tests` — scenarios and edge cases per function |
-| **Static analysis** | ShellCheck (Bash), ESLint (JS/TS), patch generation |
+| **Static analysis** | Ruff (Python), ShellCheck (Bash), ESLint (JS/TS), patch generation |
 
 So instead of "quick AI code," you get feedback that matches what a senior engineer would expect in a code review: clear structure, fewer security risks, and maintainable patterns.
 
 ## Requirements
 
 - **Python 3.10+**
-- **Optional:** [ShellCheck](https://www.shellcheck.net/) for Bash analysis, [ESLint](https://eslint.org/) (e.g. via `npx`) for JavaScript/TypeScript
+- **Optional:** [Ruff](https://docs.astral.sh/ruff/) for Python linting (`pip install ruff`), [ShellCheck](https://www.shellcheck.net/) for Bash, [ESLint](https://eslint.org/) (e.g. via `npx`) for JavaScript/TypeScript
 
 ## Project structure
 

@@ -5,7 +5,7 @@ Author: Dmitry Troshenkov
 Last Updated: March 2026
 """
 import ast
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 
 def _python_test_suggestions(code: str) -> str:

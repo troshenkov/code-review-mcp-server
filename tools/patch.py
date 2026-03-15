@@ -5,7 +5,7 @@ Author: Dmitry Troshenkov
 Last Updated: March 2026
 """
 import difflib
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 
 def generate_patch(old_code: str, new_code: str) -> str:

@@ -5,7 +5,7 @@ Author: Dmitry Troshenkov
 Last Updated: March 2026
 """
 import logging
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 def register(mcp: FastMCP):
     @mcp.tool()

@@ -4,7 +4,7 @@ Detects opportunities to simplify code structure.
 Author: Dmitry Troshenkov
 Last Updated: March 2026
 """
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 
 def simplify_code(code: str) -> str:

@@ -5,7 +5,7 @@ Automatically registers all tools for MCP server.
 Author: Dmitry Troshenkov
 Last Updated: March 2026
 """
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 from . import (
     architecture,
@@ -19,6 +19,7 @@ from . import (
     tests,
     shellcheck_tool,
     eslint_tool,
+    ruff_tool,
 )
 
 
@@ -37,3 +38,4 @@ def register(mcp: FastMCP) -> None:
     tests.register(mcp)
     shellcheck_tool.register(mcp)
     eslint_tool.register(mcp)
+    ruff_tool.register(mcp)

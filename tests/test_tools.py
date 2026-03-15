@@ -3,12 +3,14 @@ Tests for MCP tools: simplify, patch, code_quality, security, refactor.
 Run from project root: python -m pytest tests/ -v
 """
 import unittest
+from typing import Any, cast
 
 from tools.simplify import simplify_code
 from tools.patch import generate_patch
 from tools.code_quality import review_code_quality
 from tools.security import security_review
 from tools.refactor import refactor_code
+from tools.ruff_tool import ruff_check
 
 
 class TestSimplify(unittest.TestCase):
@@ -19,7 +21,7 @@ class TestSimplify(unittest.TestCase):
         self.assertIn("Too many dependencies", result)
 
     def test_simplify_code_invalid(self):
-        result = simplify_code(123)
+        result = simplify_code(cast(Any, 123))
         self.assertIn("Input error", result)
 
     def test_simplify_code_simple(self):
@@ -36,13 +38,13 @@ class TestPatch(unittest.TestCase):
         self.assertIn("+print('hello world')", diff)
 
     def test_generate_patch_invalid(self):
-        diff = generate_patch(123, "abc")
+        diff = generate_patch(cast(Any, 123), "abc")
         self.assertIn("Input error", diff)
 
 
 class TestCodeQuality(unittest.TestCase):
     def test_review_code_quality_input_error(self):
-        result = review_code_quality(123)
+        result = review_code_quality(cast(Any, 123))
         self.assertIn("Input error", result)
 
     def test_review_code_quality_empty(self):
@@ -66,7 +68,7 @@ class TestSecurity(unittest.TestCase):
         self.assertIn("eval", result)
 
     def test_security_review_input_error(self):
-        result = security_review(123)
+        result = security_review(cast(Any, 123))
         self.assertIn("Input error", result)
 
     def test_security_review_ok(self):
@@ -76,12 +78,23 @@ class TestSecurity(unittest.TestCase):
 
 class TestRefactor(unittest.TestCase):
     def test_refactor_code_input_error(self):
-        result = refactor_code(123)
+        result = refactor_code(cast(Any, 123))
         self.assertIn("Input error", result)
 
     def test_refactor_code_returns_suggestions(self):
         result = refactor_code("def f(): pass")
         self.assertIn("Refactoring suggestions", result)
+
+
+class TestRuff(unittest.TestCase):
+    def test_ruff_check_input_error(self):
+        result = ruff_check(cast(Any, 123))
+        self.assertIn("Input error", result)
+
+    def test_ruff_check_returns_string(self):
+        result = ruff_check("x = 1")
+        self.assertIsInstance(result, str)
+        self.assertTrue("Ruff" in result or "ruff" in result.lower())
 
 
 if __name__ == "__main__":

@@ -5,9 +5,16 @@ Author: Dmitry Troshenkov
 Last Updated: March 2026
 """
 import re
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 from .common import require_str
+
+# Compiled regexes (avoid recompiling on every call)
+_RE_SUBPROCESS_SHELL_VAR = re.compile(r'subprocess\.\w+\([^)]*[\'"][^"\']*\$')
+_RE_SQL_FORMAT = re.compile(r'(execute|executemany)\s*\(\s*f["\']')
+_RE_SQL_SELECT_FORMAT = re.compile(r'%\s*\%|\.format\s*\([^)]*SELECT', re.I)
+_RE_SECRET_ASSIGN = re.compile(r'(password|secret|api_key|apikey)\s*=\s*["\'][^"\']+["\']')
+_RE_LONG_TOKEN = re.compile(r'["\'][A-Za-z0-9_-]{20,}["\']')
 
 
 def _security_checks(code: str) -> list[str]:
@@ -27,7 +34,7 @@ def _security_checks(code: str) -> list[str]:
         issues.append("Use subprocess with list args (no shell=True) instead of os.system().")
     if "subprocess." in code and "shell=true" in code_lower:
         issues.append("subprocess with shell=True is injection-prone. Use list arguments.")
-    if re.search(r'subprocess\.\w+\([^)]*[\'"][^"\']*\$', code):
+    if _RE_SUBPROCESS_SHELL_VAR.search(code):
         issues.append("Avoid embedding variables in shell strings; use list args and env.")
 
     # Unsafe permissions
@@ -35,14 +42,14 @@ def _security_checks(code: str) -> list[str]:
         issues.append("Avoid 777 permissions. Use least privilege (e.g. 0o600, 0o755).")
 
     # SQL injection
-    if re.search(r'(execute|executemany)\s*\(\s*f["\']', code) or re.search(r'%\s*\%|\.format\s*\([^)]*SELECT', code, re.I):
+    if _RE_SQL_FORMAT.search(code) or _RE_SQL_SELECT_FORMAT.search(code):
         issues.append("Parameterize SQL (use ? or %s placeholders), do not format SQL with user input.")
 
     # Secrets in code
-    if re.search(r'(password|secret|api_key|apikey)\s*=\s*["\'][^"\']+["\']', code_lower):
+    if _RE_SECRET_ASSIGN.search(code_lower):
         issues.append("Do not hardcode secrets. Use environment variables or a secrets manager.")
     if "Bearer " in code and "os.environ" not in code and "getenv" not in code_lower:
-        if re.search(r'["\'][A-Za-z0-9_-]{20,}["\']', code):
+        if _RE_LONG_TOKEN.search(code):
             issues.append("Tokens/keys may be hardcoded. Use env or config.")
 
     # Insecure randomness

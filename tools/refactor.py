@@ -6,7 +6,7 @@ Last Updated: March 2026
 """
 import ast
 import re
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 from .common import require_str
 
