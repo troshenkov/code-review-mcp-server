@@ -30,6 +30,8 @@ def load_config(path):
 
 def main():
     logging.basicConfig(level=logging.INFO)
+    # Keep the MCP library itself quiet; Cursor treats stderr log noise as errors.
+    logging.getLogger("mcp").setLevel(logging.WARNING)
     logging.info("Starting Code Review MCP Server...")
 
     config = load_config(CONFIG_PATH)

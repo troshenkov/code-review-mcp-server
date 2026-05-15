@@ -1,5 +1,11 @@
 # Code Review MCP Server
 
+[![Test](https://github.com/troshenkov/code-review-mcp-server/actions/workflows/test.yml/badge.svg)](https://github.com/troshenkov/code-review-mcp-server/actions/workflows/test.yml)
+[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+
+> **Status:** archived / portfolio reference. Built March 2026 as a focused exploration of [FastMCP](https://github.com/jlowin/fastmcp) + AST-based code-quality heuristics. The deterministic tools (Ruff / ShellCheck / ESLint wrappers, secret-pattern checks) still work; the LLM-style review feedback is largely overlapped by modern coding assistants, which is why this is frozen rather than actively maintained. Fork if you want to extend.
+
 An **open-source** [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that brings senior-level code review into your editor. Use it with **Cursor** or any MCP client to get quality checks, refactor suggestions, security checks, and best-practice guidance as you code.
 
 ## Quick start
